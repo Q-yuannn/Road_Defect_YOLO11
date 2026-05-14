@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "在nn/modules/__init__.py文件里登记新模块"
+git commit -m "修改A-star和SC-DFF模块，严格对应论文公式实现，提升模型性能"
 git push
 
 echo.

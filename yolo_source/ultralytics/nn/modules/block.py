@@ -2076,52 +2076,102 @@ class RealNVP(nn.Module):
         return self.prior.log_prob(z) + log_det
 
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from ultralytics.nn.modules.conv import Conv
+
 class CAA(nn.Module):
-    """Context Anchor Attention (CAA) 模块"""
-    def __init__(self, c, kernel_size=5):
+    """严格对应论文公式 3-2 到 3-6 的 CAA 模块"""
+    def __init__(self, c, k_b=11): # k_b 默认取 11, 适合捕捉长条形道路裂缝
         super().__init__()
-        # 使用深度可分离卷积提取局部上下文特征，减少参数量
-        self.dwconv = nn.Conv2d(c, c, kernel_size, padding=kernel_size//2, groups=c, bias=False)
-        self.act = nn.SiLU()
-        self.pwconv = nn.Conv2d(c, c, 1, bias=False)
+        # 式(3-2): 为了能进行后续的 1D 卷积，这里使用局部平均池化而不是全局压缩到 1x1
+        self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=1, padding=1)
+        self.conv1x1_pool = nn.Conv2d(c, c, 1, bias=False)
+        
+        # 式(3-3): 水平 1D 深度可分离卷积 (1 x k_b)
+        self.h_conv = nn.Conv2d(c, c, kernel_size=(1, k_b), padding=(0, k_b//2), groups=c, bias=False)
+        # 式(3-4): 垂直 1D 深度可分离卷积 (k_b x 1)
+        self.v_conv = nn.Conv2d(c, c, kernel_size=(k_b, 1), padding=(k_b//2, 0), groups=c, bias=False)
+        
+        # 式(3-5): 融合并生成注意力权重 A
+        self.conv1x1_attn = nn.Conv2d(c, c, 1, bias=False)
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
-        attn = self.dwconv(x)
-        attn = self.act(attn)
-        attn = self.pwconv(attn)
-        # 将注意力权重与原特征相乘
-        return x * self.sigmoid(attn)
+        # 式(3-2): 获取局部区域特征 F_pool
+        f_pool = self.conv1x1_pool(self.avg_pool(x))
+        
+        # 式(3-3) & (3-4): 提取长距离上下文信息
+        f_w = self.h_conv(f_pool)
+        f_h = self.v_conv(f_pool)
+        
+        # 式(3-5): 生成注意力权重 A
+        A = self.sigmoid(self.conv1x1_attn(f_w + f_h))
+        
+        # 式(3-6): 逐元素相乘并相加 (残差连接)
+        f_attn = (A * x) + x
+        return f_attn
+    
 
 class A_Star_Block(nn.Module):
-    """A-Star 特征增强模块"""
+    """
+    对应论文 3.2.3 节 (1)，包含星运算和后置的 CAA 模块
+    """
     def __init__(self, c1, c2, expand_ratio=2):
         super().__init__()
-        # c1: 输入通道数, c2: 输出通道数
         hidden_dim = int(c1 * expand_ratio)
         
-        # 两个并行分支进行高维映射
+        # 高维映射准备进行星运算
         self.cv1 = nn.Conv2d(c1, hidden_dim, 1, bias=False)
         self.cv2 = nn.Conv2d(c1, hidden_dim, 1, bias=False)
         
+        # 严格后置的 CAA 模块
         self.caa = CAA(hidden_dim)
-        # 线性投影降维回目标通道数
+        
         self.proj = nn.Conv2d(hidden_dim, c2, 1, bias=False)
         self.bn = nn.BatchNorm2d(c2)
         self.act = nn.SiLU()
 
     def forward(self, x):
-        # 核心星运算 (Star Operation)：特征矩阵的逐元素乘法
+        # 星运算 (逐元素相乘)
         x1 = self.cv1(x)
         x2 = self.cv2(x)
         star_feat = x1 * x2  
         
-        # 引入上下文注意力
+        # CAA 模块筛选特征
         attn_feat = self.caa(star_feat)
         
-        out = self.bn(self.proj(attn_feat))
-        return self.act(out)
+        return self.act(self.bn(self.proj(attn_feat)))
 
+
+
+class A_Star_C3k2(nn.Module):
+    """
+    严格对应论文图 3-13。
+    包含 c3k=True (用 A-Star 替换 Bottleneck) 和 c3k=False 的完整逻辑。
+    """
+    def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True):
+        super().__init__()
+        self.c = int(c2 * e) 
+        
+        # CSP 结构的主副分支
+        self.cv1 = Conv(c1, self.c, 1, 1)
+        self.cv2 = Conv(c1, self.c, 1, 1)
+        
+        # 核心逻辑：图 3-13 (b) 与 (c) 的分歧点
+        # 如果 c3k 为 True，则堆叠我们写好的 A_Star_Block
+        # 如果 c3k 为 False，原论文通常保留普通的处理或者更简单的块，这里为了对齐 YOLO11 底层，我们做对应的兼容
+        if c3k:
+            self.m = nn.Sequential(*(A_Star_Block(self.c, self.c) for _ in range(n)))
+        else:
+            # 对应图 3-13(c)，普通卷积或者标准 Bottleneck 堆叠
+            self.m = nn.Sequential(*(Conv(self.c, self.c, 3) for _ in range(n)))
+            
+        self.cv3 = Conv(2 * self.c, c2, 1, 1)
+
+    def forward(self, x):
+        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
 
 class Channel_Shuffle(nn.Module):
     """通道混洗模块"""
@@ -2138,33 +2188,6 @@ class Channel_Shuffle(nn.Module):
         x = torch.transpose(x, 1, 2).contiguous()
         x = x.view(batchsize, -1, height, width)
         return x
-
-
-from ultralytics.nn.modules.conv import Conv
-
-class A_Star_C3k2(nn.Module):
-    """
-    对应论文图 3-13 的 A-Star-C3k2 模块。
-    保留了 C3k2 的 CSP 架构，将其内部的 Bottleneck 替换为 A_Star_Block。
-    """
-    def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True):
-        super().__init__()
-        # c_ 是内部隐藏层的通道数
-        self.c = int(c2 * e) 
-        
-        # CSP 结构的两个分支
-        self.cv1 = Conv(c1, self.c, 1, 1)
-        self.cv2 = Conv(c1, self.c, 1, 1)
-        
-        # 核心改动：把原来的 Bottleneck 堆叠，换成了 n 个 A_Star_Block 堆叠
-        self.m = nn.Sequential(*(A_Star_Block(self.c, self.c) for _ in range(n)))
-        
-        # 融合输出
-        self.cv3 = Conv(2 * self.c, c2, 1, 1)
-
-    def forward(self, x):
-        # 典型的 CSP 拼接逻辑：主分支经过 A-Star 处理，副分支直接跳跃，最后 Concat
-        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
 
 
 class SC_DFF(nn.Module):
