@@ -2139,6 +2139,34 @@ class Channel_Shuffle(nn.Module):
         x = x.view(batchsize, -1, height, width)
         return x
 
+
+from ultralytics.nn.modules.conv import Conv
+
+class A_Star_C3k2(nn.Module):
+    """
+    对应论文图 3-13 的 A-Star-C3k2 模块。
+    保留了 C3k2 的 CSP 架构，将其内部的 Bottleneck 替换为 A_Star_Block。
+    """
+    def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True):
+        super().__init__()
+        # c_ 是内部隐藏层的通道数
+        self.c = int(c2 * e) 
+        
+        # CSP 结构的两个分支
+        self.cv1 = Conv(c1, self.c, 1, 1)
+        self.cv2 = Conv(c1, self.c, 1, 1)
+        
+        # 核心改动：把原来的 Bottleneck 堆叠，换成了 n 个 A_Star_Block 堆叠
+        self.m = nn.Sequential(*(A_Star_Block(self.c, self.c) for _ in range(n)))
+        
+        # 融合输出
+        self.cv3 = Conv(2 * self.c, c2, 1, 1)
+
+    def forward(self, x):
+        # 典型的 CSP 拼接逻辑：主分支经过 A-Star 处理，副分支直接跳跃，最后 Concat
+        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
+
+
 class SC_DFF(nn.Module):
     """SC-DFF 动态多尺度特征融合模块"""
     def __init__(self, num_inputs=2, c1=256, c2=256):
@@ -2169,3 +2197,4 @@ class SC_DFF(nn.Module):
         out = self.shuffle(fused_out)
         out = self.bn(self.cv(out))
         return self.act(out)
+    

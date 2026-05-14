@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "添加SC-DFF模块，并添加其解析逻辑"
+git commit -m "补充 A-Star-C3k2 的复合模块代码（与论文替换c3k2中的bottleneck一致，而不是全部替换）"
 git push
 
 echo.
