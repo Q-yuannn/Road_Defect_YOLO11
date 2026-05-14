@@ -74,6 +74,7 @@ from ultralytics.nn.modules import (
     v10Detect,
     A_Star_Block,
     SC_DFF,
+    A_Star_C3k2,
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, SETTINGS, WINDOWS, YAML, colorstr, emojis
 from ultralytics.utils.checks import REMOTE_FILE_PREFIXES, check_file, check_requirements, check_suffix, check_yaml
@@ -1614,9 +1615,7 @@ def parse_model(d, ch, verbose=True):
             C1,
             C2,
             C2f,
-
-            A_Star_Block,
-
+            A_Star_C3k2,
             C3k2,
             RepNCSPELAN4,
             ELAN1,
@@ -1643,6 +1642,7 @@ def parse_model(d, ch, verbose=True):
             C1,
             C2,
             C2f,
+            A_Star_C3k2,
             C3k2,
             C2fAttn,
             C3,
@@ -1877,3 +1877,6 @@ def guess_model_task(model):
         "Explicitly define task for your model, i.e. 'task=detect', 'segment', 'classify','pose' or 'obb'."
     )
     return "detect"  # assume detect
+
+
+

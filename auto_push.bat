@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "补充 A-Star-C3k2 的复合模块代码（与论文替换c3k2中的bottleneck一致，而不是全部替换）"
+git commit -m "添加A-Star-C3k2 的注册逻辑，并在 yolo11-AStar.yaml（新建，原yolo模型也有）中使用它"
 git push
 
 echo.
