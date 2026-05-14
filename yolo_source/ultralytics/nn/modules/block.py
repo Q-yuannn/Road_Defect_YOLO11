@@ -2173,51 +2173,103 @@ class A_Star_C3k2(nn.Module):
     def forward(self, x):
         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
 
-class Channel_Shuffle(nn.Module):
-    """通道混洗模块"""
-    def __init__(self, groups=2):
+
+
+import torch
+import torch.nn as nn
+from ultralytics.nn.modules.conv import Conv
+
+def channel_shuffle(x, groups):
+    """对应论文 3.3.3 节和公式 (3-15) 到 (3-17) 的通道混洗"""
+    batchsize, num_channels, height, width = x.size()
+    channels_per_group = num_channels // groups
+    x = x.view(batchsize, groups, channels_per_group, height, width)
+    x = torch.transpose(x, 1, 2).contiguous() # Permute
+    x = x.view(batchsize, -1, height, width)  # Reshape
+    return x
+
+class DFF(nn.Module):
+    """严格对应论文图 3-14 和公式 (3-7) 到 (3-12) 的 DFF 模块"""
+    def __init__(self, c_split):
         super().__init__()
-        self.groups = groups
+        # c_split 是拆分后每个分支的通道数
+        c_in = c_split * 2
 
-    def forward(self, x):
-        batchsize, num_channels, height, width = x.data.size()
-        channels_per_group = num_channels // self.groups
-        
-        # Reshape -> Transpose -> Reshape 实现通道交错混合
-        x = x.view(batchsize, self.groups, channels_per_group, height, width)
-        x = torch.transpose(x, 1, 2).contiguous()
-        x = x.view(batchsize, -1, height, width)
-        return x
+        # --- 通道选择机制 (Channel Selection) ---
+        self.avg_pool = nn.AdaptiveAvgPool2d(1) # 式(3-8): AVGPool
+        self.conv1_ch_w = nn.Conv2d(c_in, c_in, 1, bias=False) # 提取通道权重
+        self.conv1_ch_f = nn.Conv2d(c_in, c_in, 1, bias=False) # 式(3-10)中的 Conv1
+        self.sigmoid = nn.Sigmoid()
 
+        # --- 空间选择机制 (Spatial Selection) ---
+        # 分别处理 F1 和 F2 的 1x1 卷积
+        self.conv1_sp_1 = nn.Conv2d(c_split, c_split, 1, bias=False)
+        self.conv1_sp_2 = nn.Conv2d(c_split, c_split, 1, bias=False)
+
+    def forward(self, f1, f2):
+        # 式(3-7): 特征拼接
+        f = torch.cat([f1, f2], dim=1)
+
+        # 式(3-8) & (3-9): 生成通道权重 w_ch
+        f_avg = self.avg_pool(f)
+        w_ch = self.sigmoid(self.conv1_ch_w(f_avg))
+
+        # 式(3-10): 通道加权并经过卷积选择
+        f_ch = self.conv1_ch_f(f * w_ch)
+
+        # 式(3-11): 生成空间权重 w_sp
+        w_sp_1 = self.conv1_sp_1(f1)
+        w_sp_2 = self.conv1_sp_2(f2)
+        w_sp = self.sigmoid(torch.cat([w_sp_1, w_sp_2], dim=1)) # 拼接并激活
+
+        # 式(3-12): 空间加权得到最终输出
+        f_out = f_ch * w_sp
+        return f_out
 
 class SC_DFF(nn.Module):
-    """SC-DFF 动态多尺度特征融合模块"""
-    def __init__(self, num_inputs=2, c1=256, c2=256):
+    """对应论文图 3-16，集成 Shuffle, Split 和 DFF"""
+    def __init__(self, c_in):
         super().__init__()
-        # num_inputs: 融合的特征图数量，通常是 Neck 层的跨尺度融合 (如 PANet 中的相加操作)
-        self.num_inputs = num_inputs
-        
-        # 声明可学习的动态权重参数
-        self.weight = nn.Parameter(torch.ones(num_inputs, dtype=torch.float32), requires_grad=True)
-        self.shuffle = Channel_Shuffle(groups=num_inputs)
-        
-        # 融合后的特征对齐层
-        self.cv = nn.Conv2d(c1, c2, 1, bias=False)
-        self.bn = nn.BatchNorm2d(c2)
-        self.act = nn.SiLU()
+        # 拆分后的通道数是输入的一半
+        self.dff = DFF(c_split=c_in // 2)
 
-    def forward(self, x_list):
-        # x_list 包含了来自不同层的特征图 (需确保它们的 h, w 已经对齐)
-        # 对权重进行 Softmax 归一化
-        w = torch.softmax(self.weight, dim=0) 
+    def forward(self, x):
+        # 1. Channel Shuffle (打乱通道)
+        x_shuffled = channel_shuffle(x, groups=2)
+        # 2. Split (式 3-13: 在通道维度均分为两份)
+        f1, f2 = torch.chunk(x_shuffled, 2, dim=1)
+        # 3. DFF 特征融合
+        return self.dff(f1, f2)
+
+class SC_DFF_SPPF(nn.Module):
+    """
+    严格对应论文图 3-17: 将 SC-DFF 嵌入 SPPF 的特定位置
+    """
+    def __init__(self, c1, c2, k=5):
+        super().__init__()
+        c_ = c1 // 2  # 隐藏层通道数
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.m = nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
         
-        # 动态加权相加
-        fused_out = x_list[0] * w[0]
-        for i in range(1, self.num_inputs):
-            fused_out = fused_out + x_list[i] * w[i]
-            
-        # 通道混洗，打破通道间的隔离状态
-        out = self.shuffle(fused_out)
-        out = self.bn(self.cv(out))
-        return self.act(out)
-    
+        # Concat 后的总通道数是 c_ 的 4 倍 (原图 + 3次池化图)
+        concat_channels = c_ * 4 
+        
+        # 将 SC-DFF 置于此，接收 Concat 后的特征
+        self.sc_dff = SC_DFF(c_in=concat_channels)
+        
+        # 最后一个卷积层，将特征恢复为目标输出通道数 c2
+        self.cv2 = Conv(concat_channels, c2, 1, 1)
+
+    def forward(self, x):
+        x = self.cv1(x)
+        y1 = self.m(x)
+        y2 = self.m(y1)
+        y3 = self.m(y2)
+        
+        # 拼接操作后...
+        concat_feat = torch.cat((x, y1, y2, y3), 1)
+        
+        # ...置于最后一个卷积操作前！
+        optimized_feat = self.sc_dff(concat_feat)
+        
+        return self.cv2(optimized_feat)
