@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "纠错，没有正确注册SC_DFF_SPPF模块，导致训练时找不到该模块，现已修正并测试通过。"
+git commit -m "建立yolo11-NBE.yaml文件，修改了yolo11n.yaml文件，更新了README.md文件"
 git push
 
 echo.
