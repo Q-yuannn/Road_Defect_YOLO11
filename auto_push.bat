@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "编写自动汇总YOLO训练结果的脚本"
+git commit -m "编写README.md文件，完善项目文档"
 git push
 
 echo.

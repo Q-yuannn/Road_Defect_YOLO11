@@ -1099,9 +1099,12 @@ class C3k2(C2f):
                 PSABlock(self.c, attn_ratio=0.5, num_heads=max(self.c // 64, 1)),
             )
             if attn
+
             else C3k(self.c, self.c, 2, shortcut, g)
             if c3k
+
             else Bottleneck(self.c, self.c, shortcut, g)
+            
             for _ in range(n)
         )
 
