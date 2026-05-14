@@ -192,5 +192,5 @@ __all__ = (
     "v10Detect",
     "A_Star_Block",  
     "A_Star_C3k2",    
-    "SC_DFF",         
+    "SC_DFF_SPPF",         
 )
