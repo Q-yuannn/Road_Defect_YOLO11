@@ -72,6 +72,7 @@ from ultralytics.nn.modules import (
     YOLOESegment,
     YOLOESegment26,
     v10Detect,
+    A_Star_Block,
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, SETTINGS, WINDOWS, YAML, colorstr, emojis
 from ultralytics.utils.checks import REMOTE_FILE_PREFIXES, check_file, check_requirements, check_suffix, check_yaml
@@ -1612,6 +1613,9 @@ def parse_model(d, ch, verbose=True):
             C1,
             C2,
             C2f,
+
+            A_Star_Block,
+
             C3k2,
             RepNCSPELAN4,
             ELAN1,
@@ -1736,6 +1740,9 @@ def parse_model(d, ch, verbose=True):
             c2 = args[0]
             c1 = ch[f]
             args = [*args[1:]]
+
+      
+
         else:
             c2 = ch[f]
 
