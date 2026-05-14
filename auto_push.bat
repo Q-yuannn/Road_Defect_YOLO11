@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "编写README.md文件，完善项目文档"
+git commit -m "为YOLO11模型的Backbone网络添加A-star模块(星运算 + 上下文注意力)"
 git push
 
 echo.

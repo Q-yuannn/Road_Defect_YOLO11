@@ -1104,7 +1104,7 @@ class C3k2(C2f):
             if c3k
 
             else Bottleneck(self.c, self.c, shortcut, g)
-            
+
             for _ in range(n)
         )
 
@@ -2074,3 +2074,50 @@ class RealNVP(nn.Module):
             self.float()
         z, log_det = self.backward_p(x)
         return self.prior.log_prob(z) + log_det
+
+
+class CAA(nn.Module):
+    """Context Anchor Attention (CAA) 模块"""
+    def __init__(self, c, kernel_size=5):
+        super().__init__()
+        # 使用深度可分离卷积提取局部上下文特征，减少参数量
+        self.dwconv = nn.Conv2d(c, c, kernel_size, padding=kernel_size//2, groups=c, bias=False)
+        self.act = nn.SiLU()
+        self.pwconv = nn.Conv2d(c, c, 1, bias=False)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        attn = self.dwconv(x)
+        attn = self.act(attn)
+        attn = self.pwconv(attn)
+        # 将注意力权重与原特征相乘
+        return x * self.sigmoid(attn)
+
+class A_Star_Block(nn.Module):
+    """A-Star 特征增强模块"""
+    def __init__(self, c1, c2, expand_ratio=2):
+        super().__init__()
+        # c1: 输入通道数, c2: 输出通道数
+        hidden_dim = int(c1 * expand_ratio)
+        
+        # 两个并行分支进行高维映射
+        self.cv1 = nn.Conv2d(c1, hidden_dim, 1, bias=False)
+        self.cv2 = nn.Conv2d(c1, hidden_dim, 1, bias=False)
+        
+        self.caa = CAA(hidden_dim)
+        # 线性投影降维回目标通道数
+        self.proj = nn.Conv2d(hidden_dim, c2, 1, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = nn.SiLU()
+
+    def forward(self, x):
+        # 核心星运算 (Star Operation)：特征矩阵的逐元素乘法
+        x1 = self.cv1(x)
+        x2 = self.cv2(x)
+        star_feat = x1 * x2  
+        
+        # 引入上下文注意力
+        attn_feat = self.caa(star_feat)
+        
+        out = self.bn(self.proj(attn_feat))
+        return self.act(out)
