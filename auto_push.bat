@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "编写训练AStar模型的代码"
+git commit -m "在nn/modules/__init__.py文件里登记新模块"
 git push
 
 echo.
