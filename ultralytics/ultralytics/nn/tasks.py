@@ -73,6 +73,7 @@ from ultralytics.nn.modules import (
     YOLOESegment26,
     v10Detect,
     A_Star_Block,
+    SC_DFF,
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, SETTINGS, WINDOWS, YAML, colorstr, emojis
 from ultralytics.utils.checks import REMOTE_FILE_PREFIXES, check_file, check_requirements, check_suffix, check_yaml
@@ -1704,6 +1705,16 @@ def parse_model(d, ch, verbose=True):
             args = [ch[f]]
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
+        
+        # 为 SC_DFF 添加独占的解析逻辑
+        elif m is SC_DFF:
+            num_inputs = len(f)    # 统计你要融合几个特征层（通常是2个）
+            c1 = ch[f[0]]          # 获取输入特征的通道数
+            c2 = args[0]           # 获取在 yaml 里写的期望输出通道数
+            # 重新打包参数，喂给 SC_DFF 的 __init__(num_inputs, c1, c2)
+            args = [num_inputs, c1, c2]  
+        
+
         elif m in frozenset(
             {
                 Detect,

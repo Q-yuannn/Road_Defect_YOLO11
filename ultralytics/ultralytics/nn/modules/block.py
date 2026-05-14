@@ -2121,3 +2121,51 @@ class A_Star_Block(nn.Module):
         
         out = self.bn(self.proj(attn_feat))
         return self.act(out)
+
+
+class Channel_Shuffle(nn.Module):
+    """通道混洗模块"""
+    def __init__(self, groups=2):
+        super().__init__()
+        self.groups = groups
+
+    def forward(self, x):
+        batchsize, num_channels, height, width = x.data.size()
+        channels_per_group = num_channels // self.groups
+        
+        # Reshape -> Transpose -> Reshape 实现通道交错混合
+        x = x.view(batchsize, self.groups, channels_per_group, height, width)
+        x = torch.transpose(x, 1, 2).contiguous()
+        x = x.view(batchsize, -1, height, width)
+        return x
+
+class SC_DFF(nn.Module):
+    """SC-DFF 动态多尺度特征融合模块"""
+    def __init__(self, num_inputs=2, c1=256, c2=256):
+        super().__init__()
+        # num_inputs: 融合的特征图数量，通常是 Neck 层的跨尺度融合 (如 PANet 中的相加操作)
+        self.num_inputs = num_inputs
+        
+        # 声明可学习的动态权重参数
+        self.weight = nn.Parameter(torch.ones(num_inputs, dtype=torch.float32), requires_grad=True)
+        self.shuffle = Channel_Shuffle(groups=num_inputs)
+        
+        # 融合后的特征对齐层
+        self.cv = nn.Conv2d(c1, c2, 1, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = nn.SiLU()
+
+    def forward(self, x_list):
+        # x_list 包含了来自不同层的特征图 (需确保它们的 h, w 已经对齐)
+        # 对权重进行 Softmax 归一化
+        w = torch.softmax(self.weight, dim=0) 
+        
+        # 动态加权相加
+        fused_out = x_list[0] * w[0]
+        for i in range(1, self.num_inputs):
+            fused_out = fused_out + x_list[i] * w[i]
+            
+        # 通道混洗，打破通道间的隔离状态
+        out = self.shuffle(fused_out)
+        out = self.bn(self.cv(out))
+        return self.act(out)

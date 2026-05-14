@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "将A-star模块注入YOLO11解析器"
+git commit -m "添加SC-DFF模块，并添加其解析逻辑"
 git push
 
 echo.
