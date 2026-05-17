@@ -2,12 +2,12 @@ from ultralytics import YOLO
 
 if __name__ == '__main__':
     
-    model = YOLO('yolo11-NBE.yaml').load('yolo11n.pt') 
+    model = YOLO('yolo11-SPPF.yaml').load('yolo11n.pt') 
     
     # 开始第三次消融实验
     results = model.train(
         data='road.yaml',          
-        epochs=100,                
+        epochs=150,                
         imgsz=640,                 
         batch=16,                  
         optimizer='SGD',           
@@ -17,6 +17,6 @@ if __name__ == '__main__':
         device=0,                  
         workers=4,                 
         # 换一个专属的输出文件夹，防止覆盖baseline 数据
-        name='ablation_NBE', 
+        name="SPPF_only",
         patience=30                
     )
