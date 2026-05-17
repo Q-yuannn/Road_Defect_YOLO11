@@ -7,7 +7,7 @@ if __name__ == '__main__':
     # 开始第三次消融实验
     results = model.train(
         data='road.yaml',          
-        epochs=150,                
+        epochs=100,                
         imgsz=640,                 
         batch=16,                  
         optimizer='SGD',           

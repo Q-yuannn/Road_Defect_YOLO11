@@ -2270,9 +2270,35 @@ class SC_DFF_SPPF(nn.Module):
         concat_feat = torch.cat((x, y1, y2, y3), 1)
         
         # ...置于最后一个卷积操作前！
-        # optimized_feat = self.sc_dff(concat_feat)
-        # 加入残差
-        optimized_feat = concat_feat + 0.1 * self.sc_dff(concat_feat)
+        optimized_feat = self.sc_dff(concat_feat)
 
         
+        return self.cv2(optimized_feat)
+    
+
+
+# 引入加入残差处理的SC-DFF 模块
+class SC_DFF_SPPF_Res(nn.Module):
+    def __init__(self, c1, c2, k=5):
+        super().__init__()
+        c_ = c1 // 2
+        self.cv1 = Conv(c1, c_, 1, 1)
+        self.m = nn.MaxPool2d(kernel_size=k, stride=1, padding=k // 2)
+
+        concat_channels = c_ * 4
+        self.sc_dff = SC_DFF(c_in=concat_channels)
+
+        self.alpha = nn.Parameter(torch.tensor(0.1))
+        self.cv2 = Conv(concat_channels, c2, 1, 1)
+
+    def forward(self, x):
+        x = self.cv1(x)
+        y1 = self.m(x)
+        y2 = self.m(y1)
+        y3 = self.m(y2)
+
+        concat_feat = torch.cat((x, y1, y2, y3), 1)
+
+        optimized_feat = concat_feat + self.alpha * self.sc_dff(concat_feat)
+
         return self.cv2(optimized_feat)
