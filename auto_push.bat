@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "建立yolo11-NBE.yaml文件，修改了yolo11n.yaml文件，更新了README.md文件"
+git commit -m "给 SC-DFF-SPPF 加残差"
 git push
 
 echo.

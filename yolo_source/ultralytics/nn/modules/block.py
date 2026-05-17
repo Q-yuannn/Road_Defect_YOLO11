@@ -2270,6 +2270,9 @@ class SC_DFF_SPPF(nn.Module):
         concat_feat = torch.cat((x, y1, y2, y3), 1)
         
         # ...置于最后一个卷积操作前！
-        optimized_feat = self.sc_dff(concat_feat)
+        # optimized_feat = self.sc_dff(concat_feat)
+        # 加入残差
+        optimized_feat = concat_feat + 0.1 * self.sc_dff(concat_feat)
+
         
         return self.cv2(optimized_feat)
