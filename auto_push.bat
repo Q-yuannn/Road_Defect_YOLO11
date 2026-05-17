@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "新增残差版 SPPF，不覆盖原类，方便消融实验"
+git commit -m "为新增残差版配置yaml"
 git push
 
 echo.
