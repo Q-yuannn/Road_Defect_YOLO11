@@ -17,6 +17,6 @@ if __name__ == '__main__':
 
         device=0,                  # 指定使用第一张显卡 (RTX 4060)
         workers=4,                 # 开启多线程数据加载加速
-        name='baseline_yolo11n',   # 训练结果保存的文件夹名称
+        name='baseline_yolo11n_200e',   # 训练结果保存的文件夹名称
         patience=30                # 早停机制：如果 30 轮 mAP 没有提升就自动停止
     )

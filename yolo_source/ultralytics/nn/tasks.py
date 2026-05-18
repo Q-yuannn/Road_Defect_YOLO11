@@ -75,8 +75,9 @@ from ultralytics.nn.modules import (
     A_Star_Block,
     SC_DFF,
     A_Star_C3k2,
-    SC_DFF_SPPF,
     SC_DFF_SPPF_Res,
+    SC_DFF_SPPF,
+    
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, SETTINGS, WINDOWS, YAML, colorstr, emojis
 from ultralytics.utils.checks import REMOTE_FILE_PREFIXES, check_file, check_requirements, check_suffix, check_yaml
@@ -1637,6 +1638,7 @@ def parse_model(d, ch, verbose=True):
             C2fCIB,
             A2C2f,
             SC_DFF_SPPF,
+            SC_DFF_SPPF_Res,
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments

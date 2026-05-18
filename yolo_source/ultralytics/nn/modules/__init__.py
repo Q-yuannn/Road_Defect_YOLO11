@@ -63,6 +63,7 @@ from .block import (
     A_Star_C3k2,    
     SC_DFF,
     SC_DFF_SPPF,
+    SC_DFF_SPPF_Res,
 )
 from .conv import (
     CBAM,
@@ -194,4 +195,5 @@ __all__ = (
     "A_Star_Block",  
     "A_Star_C3k2",    
     "SC_DFF_SPPF",         
+    "SC_DFF_SPPF_Res",
 )
