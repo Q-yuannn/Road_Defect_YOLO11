@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "修改Astar模块，严格对应论文，用新版本进行新的消融实验"
+git commit -m "增加两组数据集"
 git push
 
 echo.

@@ -7,7 +7,7 @@ if __name__ == '__main__':
     # 开始第三次消融实验
     results = model.train(
         data='road.yaml',          
-        epochs=100,                
+        epochs=200,                
         imgsz=640,                 
         batch=16,                  
         optimizer='SGD',           
@@ -17,6 +17,6 @@ if __name__ == '__main__':
         device=0,                  
         workers=4,                 
         # 换一个专属的输出文件夹，防止覆盖baseline 数据
-        name="SPPF_only",
+        name="SPPF_only_200e",
         patience=30                
     )

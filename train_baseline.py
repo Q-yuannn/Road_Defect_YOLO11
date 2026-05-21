@@ -7,7 +7,7 @@ if __name__ == '__main__':
     # 2. 开始训练
     results = model.train(
         data='road.yaml',          # 指向配置文件
-        epochs=100,                # 训练100轮
+        epochs=200,                # 训练100轮
         imgsz=640,                 # 图像输入尺寸 (论文标准尺寸)
         batch=16,          
         optimizer='SGD',           # 优化器使用 SGD
