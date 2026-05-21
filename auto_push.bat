@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "增加两组数据集"
+git commit -m "严格按照论文8：1：1的方式划分数据集"
 git push
 
 echo.
