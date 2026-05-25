@@ -12,7 +12,7 @@ if __name__ == '__main__':
         batch=16,                  
         optimizer='SGD',           
         lr0=0.01,                  
-        momentum=0.937,            
+        momentum=0.9,            
         weight_decay=0.0005,       
         device=0,                  
         workers=4,                 

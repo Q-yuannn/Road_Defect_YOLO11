@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "修改road.yaml文件以适配新的数据集结构"
+git commit -m "修改训练配置文件的动量参数"
 git push
 
 echo.

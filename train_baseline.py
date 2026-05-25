@@ -12,7 +12,7 @@ if __name__ == '__main__':
         batch=16,          
         optimizer='SGD',           # 优化器使用 SGD
         lr0=0.01,                  # 初始学习率 0.01
-        momentum=0.937,            # 动量参数 0.937
+        momentum=0.9,            # 动量参数 0.937
         weight_decay=0.0005,       # 权重衰减 0.0005
 
         device=0,                  # 指定使用第一张显卡 (RTX 4060)
