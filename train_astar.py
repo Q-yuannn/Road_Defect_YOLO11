@@ -17,6 +17,6 @@ if __name__ == '__main__':
         device=0,                  
         workers=4,                 
         # 换一个专属的输出文件夹，防止覆盖baseline 数据
-        name='ablation_AStar_C3k2_nversion_e200', 
+        name='6.4_AStar_C3k2_nversion_e200', 
         patience=30                
     )
