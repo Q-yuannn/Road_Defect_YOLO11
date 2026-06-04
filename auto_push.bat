@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "继续稳定Astar"
+git commit -m "设置随机种子"
 git push
 
 echo.
