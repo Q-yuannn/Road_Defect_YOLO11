@@ -1,27 +1,27 @@
-# # RDD2022 道路缺陷数据集配置
+# RDD2022 道路缺陷数据集配置
 
-# # 路径设置 (使用相对路径)
-# path: ./datasets/RDD2022  # 数据集根目录
-# train: images/train       # 训练集图片目录 (相对于 path)
-# val: images/val           # 验证集图片目录 (相对于 path)
+# 路径设置 (使用相对路径)
+path: ./datasets/RDD2022  # 数据集根目录
+train: images/train       # 训练集图片目录 (相对于 path)
+val: images/val           # 验证集图片目录 (相对于 path)
 
-# # 类别字典 (必须和你之前 split_data.py 里的类别顺序严格一致)
-# names:
-#   0: D00  # 纵向裂缝
-#   1: D10  # 横向裂缝
-#   2: D20  # 复杂裂纹
-#   3: D40  # 坑洞
-
-path: ./datasets/RoadDefect_3sets_YOLO
-
-train: images/train
-val: images/val
-test: images/test
-
-nc: 4
-
+# 类别字典 (必须和你之前 split_data.py 里的类别顺序严格一致)
 names:
-  0: D00
-  1: D10
-  2: D20
-  3: D40
+  0: D00  # 纵向裂缝
+  1: D10  # 横向裂缝
+  2: D20  # 复杂裂纹
+  3: D40  # 坑洞
+
+# path: ./datasets/RoadDefect_3sets_YOLO
+
+# train: images/train
+# val: images/val
+# test: images/test
+
+# nc: 4
+
+# names:
+#   0: D00
+#   1: D10
+#   2: D20
+#   3: D40

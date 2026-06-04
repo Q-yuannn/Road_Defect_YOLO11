@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "修改训练配置文件的动量参数"
+git commit -m "修改训练配置文件的所有c3k2层变为A_Star_C3k2"
 git push
 
 echo.
