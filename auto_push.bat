@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "残差缩放A-star"
+git commit -m "取最好的一次epoch作为训练结果"
 git push
 
 echo.

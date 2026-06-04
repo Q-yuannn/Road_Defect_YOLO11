@@ -50,8 +50,7 @@ backbone:
   # 原来是 C3k2，现在换成 A-Star-C3k2，c3k=True
   - [-1, 2, A_Star_C3k2, [1024, True]]
 
-  # 原始 SPPF 换成 SC-DFF-SPPF
-  - [-1, 1, SC_DFF_SPPF, [1024, 5]]
+  - [-1, 1, SPPF, [1024, 5]]
 
   - [-1, 2, C2PSA, [1024]]
 
