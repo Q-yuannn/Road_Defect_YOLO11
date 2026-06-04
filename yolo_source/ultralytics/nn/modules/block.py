@@ -2391,7 +2391,8 @@ class A_Star_Block(nn.Module):
         shortcut=True,
         dw_kernel=7,
         caa_kernel=11,
-        gamma_init=0.05
+        # 初始 gamma 设小一点，让训练初期更接近原网络，减少对预训练特征的扰动
+        gamma_init=0.01
     ):
         super().__init__()
 
@@ -2448,6 +2449,10 @@ class A_Star_Block(nn.Module):
         # 7. 残差缩放参数
         # 初始值设小一点，让训练初期更接近原网络，减少对预训练特征的扰动
         self.gamma = nn.Parameter(torch.tensor(gamma_init, dtype=torch.float32))
+        
+        # 让 A-Star 分支初始输出接近 0，训练初期更接近原始残差路径
+        nn.init.constant_(self.dw2[1].weight, 0.0)
+        nn.init.constant_(self.dw2[1].bias, 0.0)
 
     def forward(self, x):
         identity = x
@@ -2473,7 +2478,7 @@ class A_Star_Block(nn.Module):
         elif self.use_proj:
             return self.shortcut_proj(identity) + self.gamma * out
         else:
-            return out
+            return self.gamma * out
 
 
 class A_Star_C3(nn.Module):

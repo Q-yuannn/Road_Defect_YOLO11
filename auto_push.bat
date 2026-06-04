@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "取最好的一次epoch作为训练结果"
+git commit -m "继续稳定Astar"
 git push
 
 echo.

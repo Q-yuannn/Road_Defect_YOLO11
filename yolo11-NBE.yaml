@@ -30,13 +30,13 @@ backbone:
 
   - [-1, 1, Conv, [512, 3, 2]]         # 5-P4/16
 
-  # 原来是 C3k2，现在换成 A-Star-C3k2，c3k=True
-  - [-1, 2, A_Star_C3k2, [512, True]]
+
+  - [-1, 2, C3k2, [512, True]]
 
   - [-1, 1, Conv, [1024, 3, 2]]        # 7-P5/32
 
-  # 原来是 C3k2，现在换成 A-Star-C3k2，c3k=True
-  - [-1, 2, A_Star_C3k2, [1024, True]]
+
+  - [-1, 2, C3k2, [1024, True]]
 
   # 原始 SPPF 换成 SC-DFF-SPPF
   - [-1, 1, SC_DFF_SPPF, [1024, 5]]
