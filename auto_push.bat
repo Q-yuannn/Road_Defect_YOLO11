@@ -7,7 +7,7 @@ echo ======================
 call D:\py\anaconda3\Scripts\activate.bat pytorch_env
 
 git add .
-git commit -m "设置随机种子"
+git commit -m "生成 D00 带框预览图，方便后续筛选RDD中有效图和框数据"
 git push
 
 echo.

@@ -2393,6 +2393,7 @@ class A_Star_Block(nn.Module):
         caa_kernel=11,
         # 初始 gamma 设小一点，让训练初期更接近原网络，减少对预训练特征的扰动
         gamma_init=0.01
+        # gamma_init=0.03
     ):
         super().__init__()
 
