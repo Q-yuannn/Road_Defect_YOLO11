@@ -7,6 +7,7 @@ DATASET_DIR = Path("datasets/RDD2022")
 # 你人工复制坏预览图的文件夹
 BAD_PREVIEW_DIR = Path("review_D00_bad")
 
+
 # 类别顺序必须和 road.yaml 一致
 CLASS_NAMES = {
     0: "D00",

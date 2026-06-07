@@ -2114,273 +2114,87 @@ class CAA(nn.Module):
         return f_attn
     
 
-# class A_Star_Block(nn.Module):
-#     """
-#     对应论文 3.2.3 节 (1)，包含星运算和后置的 CAA 模块
-#     """
-#     def __init__(self, c1, c2, expand_ratio=2):
-#         super().__init__()
-#         hidden_dim = int(c1 * expand_ratio)
+class A_Star_Block(nn.Module):
+    """
+    对应论文 3.2.3 节 (1)，包含星运算和后置的 CAA 模块
+    """
+    def __init__(self, c1, c2, expand_ratio=2):
+        super().__init__()
+        hidden_dim = int(c1 * expand_ratio)
         
-#         # 高维映射准备进行星运算
-#         self.cv1 = nn.Conv2d(c1, hidden_dim, 1, bias=False)
-#         self.cv2 = nn.Conv2d(c1, hidden_dim, 1, bias=False)
+        # 高维映射准备进行星运算
+        self.cv1 = nn.Conv2d(c1, hidden_dim, 1, bias=False)
+        self.cv2 = nn.Conv2d(c1, hidden_dim, 1, bias=False)
         
-#         # 严格后置的 CAA 模块
-#         self.caa = CAA(hidden_dim)
+        # 严格后置的 CAA 模块
+        self.caa = CAA(hidden_dim)
         
-#         self.proj = nn.Conv2d(hidden_dim, c2, 1, bias=False)
-#         self.bn = nn.BatchNorm2d(c2)
-#         self.act = nn.SiLU()
+        self.proj = nn.Conv2d(hidden_dim, c2, 1, bias=False)
+        self.bn = nn.BatchNorm2d(c2)
+        self.act = nn.SiLU()
 
-#     def forward(self, x):
-#         # 星运算 (逐元素相乘)
-#         x1 = self.cv1(x)
-#         x2 = self.cv2(x)
-#         star_feat = x1 * x2  
+    def forward(self, x):
+        # 星运算 (逐元素相乘)
+        x1 = self.cv1(x)
+        x2 = self.cv2(x)
+        star_feat = x1 * x2  
         
-#         # CAA 模块筛选特征
-#         attn_feat = self.caa(star_feat)
+        # CAA 模块筛选特征
+        attn_feat = self.caa(star_feat)
         
-#         return self.act(self.bn(self.proj(attn_feat)))
+        return self.act(self.bn(self.proj(attn_feat)))
 
-# class A_Star_C3k2(nn.Module):
-#     """
-#     严格对应论文图 3-13。
-#     包含 c3k=True (用 A-Star 替换 Bottleneck) 和 c3k=False 的完整逻辑。
-#     """
-#     def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True):
-#         super().__init__()
-#         self.c = int(c2 * e) 
+class A_Star_C3k2(nn.Module):
+    """
+    严格对应论文图 3-13。
+    包含 c3k=True (用 A-Star 替换 Bottleneck) 和 c3k=False 的完整逻辑。
+    """
+    def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True):
+        super().__init__()
+        self.c = int(c2 * e) 
         
-#         # CSP 结构的主副分支
-#         self.cv1 = Conv(c1, self.c, 1, 1)
-#         self.cv2 = Conv(c1, self.c, 1, 1)
+        # CSP 结构的主副分支
+        self.cv1 = Conv(c1, self.c, 1, 1)
+        self.cv2 = Conv(c1, self.c, 1, 1)
         
-#         # 核心逻辑：图 3-13 (b) 与 (c) 的分歧点
-#         # 如果 c3k 为 True，则堆叠我们写好的 A_Star_Block
-#         # 如果 c3k 为 False，原论文通常保留普通的处理或者更简单的块，这里为了对齐 YOLO11 底层，我们做对应的兼容
-#         if c3k:
-#             self.m = nn.Sequential(*(A_Star_Block(self.c, self.c) for _ in range(n)))
-#         else:
-#             # 对应图 3-13(c)，普通卷积或者标准 Bottleneck 堆叠
-#             self.m = nn.Sequential(*(Conv(self.c, self.c, 3) for _ in range(n)))
+        # 核心逻辑：图 3-13 (b) 与 (c) 的分歧点
+        # 如果 c3k 为 True，则堆叠我们写好的 A_Star_Block
+        # 如果 c3k 为 False，原论文通常保留普通的处理或者更简单的块，这里为了对齐 YOLO11 底层，我们做对应的兼容
+        if c3k:
+            self.m = nn.Sequential(*(A_Star_Block(self.c, self.c) for _ in range(n)))
+        else:
+            # 对应图 3-13(c)，普通卷积或者标准 Bottleneck 堆叠
+            self.m = nn.Sequential(*(Conv(self.c, self.c, 3) for _ in range(n)))
             
-#         self.cv3 = Conv(2 * self.c, c2, 1, 1)
+        self.cv3 = Conv(2 * self.c, c2, 1, 1)
 
-#     def forward(self, x):
-#         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
-
-
-
-# # =========================
-# # A-Star modules for BE-YOLO
-# # 对应论文：Star Blocks + CAA + A-Star-C3k2
-# # =========================
-
-# class A_Star_Block(nn.Module):
-#     """
-#     A-Star Block
-
-#     对应论文图 3-12：
-#     DWConv + BN
-#         ├── Conv2d + ReLU6
-#         └── Conv2d
-#     MUL 星运算
-#     CAA 注意力
-#     Conv2d + BN
-#     DWConv + BN
-#     ADD 残差连接
-
-#     说明：
-#     1. CAA 放在星运算之后，对应论文“星运算后再用 CAA 筛选增强特征”的设计。
-#     2. 保留 DWConv、BN、ReLU6 和残差 ADD，比你原来的简化版更接近论文结构。
-#     """
-
-#     def __init__(
-#         self,
-#         c1,
-#         c2,
-#         expand_ratio=2.0,
-#         shortcut=True,
-#         dw_kernel=7,
-#         caa_kernel=11
-#     ):
-#         super().__init__()
-
-#         hidden_dim = int(c1 * expand_ratio)
-#         padding = dw_kernel // 2
-
-#         # 1. Star Blocks 前置 DWConv + BN
-#         self.dw1 = nn.Sequential(
-#             nn.Conv2d(
-#                 c1,
-#                 c1,
-#                 kernel_size=dw_kernel,
-#                 stride=1,
-#                 padding=padding,
-#                 groups=c1,
-#                 bias=False
-#             ),
-#             nn.BatchNorm2d(c1)
-#         )
-
-#         # 2. 两个 1×1 Conv 分支，用于星运算
-#         self.fc1 = nn.Conv2d(c1, hidden_dim, kernel_size=1, stride=1, padding=0, bias=False)
-#         self.fc2 = nn.Conv2d(c1, hidden_dim, kernel_size=1, stride=1, padding=0, bias=False)
-#         self.act = nn.ReLU6(inplace=True)
-
-#         # 3. 星运算之后加入 CAA
-#         self.caa = CAA(hidden_dim, k_b=caa_kernel)
-
-#         # 4. 星运算后的特征压回输出通道
-#         self.pw = nn.Sequential(
-#             nn.Conv2d(hidden_dim, c2, kernel_size=1, stride=1, padding=0, bias=False),
-#             nn.BatchNorm2d(c2)
-#         )
-
-#         # 5. 输出前 DWConv + BN
-#         self.dw2 = nn.Sequential(
-#             nn.Conv2d(
-#                 c2,
-#                 c2,
-#                 kernel_size=dw_kernel,
-#                 stride=1,
-#                 padding=padding,
-#                 groups=c2,
-#                 bias=False
-#             ),
-#             nn.BatchNorm2d(c2)
-#         )
-
-#         # 6. 残差连接
-#         self.add = shortcut and c1 == c2
-#         self.use_proj = shortcut and c1 != c2
-#         self.shortcut_proj = Conv(c1, c2, 1, 1, act=False) if self.use_proj else nn.Identity()
-
-#     def forward(self, x):
-#         identity = x
-
-#         # DWConv + BN
-#         x = self.dw1(x)
-
-#         # 星运算：一个分支经过 ReLU6，另一个分支保持线性
-#         x1 = self.act(self.fc1(x))
-#         x2 = self.fc2(x)
-#         x = x1 * x2
-
-#         # 星运算后接 CAA
-#         x = self.caa(x)
-
-#         # Conv2d + BN + DWConv + BN
-#         x = self.pw(x)
-#         x = self.dw2(x)
-
-#         # ADD 残差
-#         if self.add:
-#             return x + identity
-#         elif self.use_proj:
-#             return x + self.shortcut_proj(identity)
-#         else:
-#             return x
+    def forward(self, x):
+        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
 
 
-# class A_Star_C3(nn.Module):
-#     """
-#     A-Star-C3
 
-#     对应论文图 3-13(a)：
-#     用 A-Star_Block 替换原 C3 模块中的 Bottleneck。
-#     """
-
-#     def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):
-#         super().__init__()
-#         c_ = int(c2 * e)
-
-#         self.cv1 = Conv(c1, c_, 1, 1)
-#         self.cv2 = Conv(c1, c_, 1, 1)
-#         self.cv3 = Conv(2 * c_, c2, 1, 1)
-
-#         self.m = nn.Sequential(
-#             *(A_Star_Block(c_, c_, shortcut=shortcut) for _ in range(n))
-#         )
-
-#     def forward(self, x):
-#         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
-
-
-# class A_Star_C3k2(nn.Module):
-#     """
-#     A-Star-C3k2
-
-#     对应论文图 3-13(b)(c)，并尽量保持 YOLO11 原生 C3k2 / C2f 的数据流：
-#     1. cv1 后 split/chunk 成两支；
-#     2. 一支连续经过 A-Star 模块；
-#     3. 将各阶段特征 concat；
-#     4. cv2 输出。
-
-#     这比你原先自己重写的 C3 风格结构更接近 YOLO11 原生 C3k2。
-#     """
-
-#     def __init__(
-#         self,
-#         c1,
-#         c2,
-#         n=1,
-#         c3k=False,
-#         e=0.5,
-#         g=1,
-#         shortcut=True
-#     ):
-#         super().__init__()
-
-#         self.c = int(c2 * e)
-
-#         # 保持 YOLO11 C3k2 / C2f 风格
-#         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
-#         self.cv2 = Conv((2 + n) * self.c, c2, 1, 1)
-
-#         # c3k=True 时，对应论文图 3-13(b)：内部使用 A-Star-C3
-#         # c3k=False 时，对应论文图 3-13(c)：直接使用 A-Star_Block
-#         self.m = nn.ModuleList(
-#             A_Star_C3(self.c, self.c, n=2, shortcut=shortcut, g=g, e=1.0)
-#             if c3k
-#             else A_Star_Block(self.c, self.c, shortcut=shortcut)
-#             for _ in range(n)
-#         )
-
-#     def forward(self, x):
-#         y = list(self.cv1(x).chunk(2, dim=1))
-#         y.extend(m(y[-1]) for m in self.m)
-#         return self.cv2(torch.cat(y, dim=1))
-
-#     def forward_split(self, x):
-#         y = list(self.cv1(x).split((self.c, self.c), dim=1))
-#         y.extend(m(y[-1]) for m in self.m)
-#         return self.cv2(torch.cat(y, dim=1))
 # =========================
-# Stable A-Star modules
-# A-Star + CAA + residual scaling gamma
+# A-Star modules for BE-YOLO
+# 对应论文：Star Blocks + CAA + A-Star-C3k2
 # =========================
 
 class A_Star_Block(nn.Module):
     """
-    稳定版 A-Star Block。
+    A-Star Block
 
-    结构：
+    对应论文图 3-12：
     DWConv + BN
-        ├── 1x1 Conv + ReLU6
-        └── 1x1 Conv
-    星运算 MUL
-    CAA
-    1x1 Conv + BN
+        ├── Conv2d + ReLU6
+        └── Conv2d
+    MUL 星运算
+    CAA 注意力
+    Conv2d + BN
     DWConv + BN
-    gamma 残差缩放
+    ADD 残差连接
 
-    重点：
-    1. CAA 放在星运算之后，贴合论文思路；
-    2. 保留残差连接；
-    3. 增加 gamma，避免随机初始化的新分支一开始就强烈破坏预训练特征。
+    说明：
+    1. CAA 放在星运算之后，对应论文“星运算后再用 CAA 筛选增强特征”的设计。
+    2. 保留 DWConv、BN、ReLU6 和残差 ADD，比你原来的简化版更接近论文结构。
     """
 
     def __init__(
@@ -2390,17 +2204,14 @@ class A_Star_Block(nn.Module):
         expand_ratio=2.0,
         shortcut=True,
         dw_kernel=7,
-        caa_kernel=11,
-        # 初始 gamma 设小一点，让训练初期更接近原网络，减少对预训练特征的扰动
-        gamma_init=0.01
-        # gamma_init=0.03
+        caa_kernel=11
     ):
         super().__init__()
 
         hidden_dim = int(c1 * expand_ratio)
         padding = dw_kernel // 2
 
-        # 1. 前置 DWConv + BN，增强局部空间信息
+        # 1. Star Blocks 前置 DWConv + BN
         self.dw1 = nn.Sequential(
             nn.Conv2d(
                 c1,
@@ -2414,21 +2225,21 @@ class A_Star_Block(nn.Module):
             nn.BatchNorm2d(c1)
         )
 
-        # 2. 两个 1x1 分支，用于星运算
+        # 2. 两个 1×1 Conv 分支，用于星运算
         self.fc1 = nn.Conv2d(c1, hidden_dim, kernel_size=1, stride=1, padding=0, bias=False)
         self.fc2 = nn.Conv2d(c1, hidden_dim, kernel_size=1, stride=1, padding=0, bias=False)
         self.act = nn.ReLU6(inplace=True)
 
-        # 3. 星运算之后接 CAA
+        # 3. 星运算之后加入 CAA
         self.caa = CAA(hidden_dim, k_b=caa_kernel)
 
-        # 4. 将高维特征压回输出通道
+        # 4. 星运算后的特征压回输出通道
         self.pw = nn.Sequential(
             nn.Conv2d(hidden_dim, c2, kernel_size=1, stride=1, padding=0, bias=False),
             nn.BatchNorm2d(c2)
         )
 
-        # 5. 输出前再做一次 DWConv + BN
+        # 5. 输出前 DWConv + BN
         self.dw2 = nn.Sequential(
             nn.Conv2d(
                 c2,
@@ -2447,51 +2258,43 @@ class A_Star_Block(nn.Module):
         self.use_proj = shortcut and c1 != c2
         self.shortcut_proj = Conv(c1, c2, 1, 1, act=False) if self.use_proj else nn.Identity()
 
-        # 7. 残差缩放参数
-        # 初始值设小一点，让训练初期更接近原网络，减少对预训练特征的扰动
-        self.gamma = nn.Parameter(torch.tensor(gamma_init, dtype=torch.float32))
-        
-        # 让 A-Star 分支初始输出接近 0，训练初期更接近原始残差路径
-        nn.init.constant_(self.dw2[1].weight, 0.0)
-        nn.init.constant_(self.dw2[1].bias, 0.0)
-
     def forward(self, x):
         identity = x
 
         # DWConv + BN
-        out = self.dw1(x)
+        x = self.dw1(x)
 
-        # 星运算：一个分支 ReLU6，另一个分支线性
-        x1 = self.act(self.fc1(out))
-        x2 = self.fc2(out)
-        out = x1 * x2
+        # 星运算：一个分支经过 ReLU6，另一个分支保持线性
+        x1 = self.act(self.fc1(x))
+        x2 = self.fc2(x)
+        x = x1 * x2
 
-        # CAA 筛选和增强星运算后的高维特征
-        out = self.caa(out)
+        # 星运算后接 CAA
+        x = self.caa(x)
 
-        # 通道压缩 + 输出前 DWConv
-        out = self.pw(out)
-        out = self.dw2(out)
+        # Conv2d + BN + DWConv + BN
+        x = self.pw(x)
+        x = self.dw2(x)
 
-        # 稳定残差：不是 out + identity，而是 identity + gamma * out
+        # ADD 残差
         if self.add:
-            return identity + self.gamma * out
+            return x + identity
         elif self.use_proj:
-            return self.shortcut_proj(identity) + self.gamma * out
+            return x + self.shortcut_proj(identity)
         else:
-            return self.gamma * out
+            return x
 
 
 class A_Star_C3(nn.Module):
     """
-    A-Star-C3。
+    A-Star-C3
 
-    用 A_Star_Block 替换原 C3 中的 Bottleneck。
+    对应论文图 3-13(a)：
+    用 A-Star_Block 替换原 C3 模块中的 Bottleneck。
     """
 
     def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):
         super().__init__()
-
         c_ = int(c2 * e)
 
         self.cv1 = Conv(c1, c_, 1, 1)
@@ -2508,18 +2311,15 @@ class A_Star_C3(nn.Module):
 
 class A_Star_C3k2(nn.Module):
     """
-    稳定版 A-Star-C3k2。
+    A-Star-C3k2
 
-    尽量保持 YOLO11 原生 C3k2 / C2f 的数据流：
-    1. cv1 后 chunk 成两支；
+    对应论文图 3-13(b)(c)，并尽量保持 YOLO11 原生 C3k2 / C2f 的数据流：
+    1. cv1 后 split/chunk 成两支；
     2. 一支连续经过 A-Star 模块；
-    3. concat 多阶段特征；
+    3. 将各阶段特征 concat；
     4. cv2 输出。
 
-    c3k=True:
-        内部使用 A_Star_C3。
-    c3k=False:
-        直接使用 A_Star_Block。
+    这比你原先自己重写的 C3 风格结构更接近 YOLO11 原生 C3k2。
     """
 
     def __init__(
@@ -2536,16 +2336,14 @@ class A_Star_C3k2(nn.Module):
 
         self.c = int(c2 * e)
 
-        # 保持 C2f / C3k2 风格
+        # 保持 YOLO11 C3k2 / C2f 风格
         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
         self.cv2 = Conv((2 + n) * self.c, c2, 1, 1)
 
-        # 这里我建议先用 inner_n=1，而不是 2
-        # 原因：你当前全替换 A-Star 后效果下降，说明 A-Star 扰动偏强
-        inner_n = 1
-
+        # c3k=True 时，对应论文图 3-13(b)：内部使用 A-Star-C3
+        # c3k=False 时，对应论文图 3-13(c)：直接使用 A-Star_Block
         self.m = nn.ModuleList(
-            A_Star_C3(self.c, self.c, n=inner_n, shortcut=shortcut, g=g, e=1.0)
+            A_Star_C3(self.c, self.c, n=2, shortcut=shortcut, g=g, e=1.0)
             if c3k
             else A_Star_Block(self.c, self.c, shortcut=shortcut)
             for _ in range(n)
@@ -2560,6 +2358,211 @@ class A_Star_C3k2(nn.Module):
         y = list(self.cv1(x).split((self.c, self.c), dim=1))
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, dim=1))
+    
+
+
+# =========================
+# Stable A-Star modules
+# A-Star + CAA + residual scaling gamma
+# =========================
+
+# class A_Star_Block(nn.Module):
+#     """
+#     稳定版 A-Star Block。
+
+#     结构：
+#     DWConv + BN
+#         ├── 1x1 Conv + ReLU6
+#         └── 1x1 Conv
+#     星运算 MUL
+#     CAA
+#     1x1 Conv + BN
+#     DWConv + BN
+#     gamma 残差缩放
+
+#     重点：
+#     1. CAA 放在星运算之后，贴合论文思路；
+#     2. 保留残差连接；
+#     3. 增加 gamma，避免随机初始化的新分支一开始就强烈破坏预训练特征。
+#     """
+
+#     def __init__(
+#         self,
+#         c1,
+#         c2,
+#         expand_ratio=2.0,
+#         shortcut=True,
+#         dw_kernel=7,
+#         caa_kernel=11,
+#         # 初始 gamma 设小一点，让训练初期更接近原网络，减少对预训练特征的扰动
+#         gamma_init=0.01
+#         # gamma_init=0.03
+#     ):
+#         super().__init__()
+
+#         hidden_dim = int(c1 * expand_ratio)
+#         padding = dw_kernel // 2
+
+#         # 1. 前置 DWConv + BN，增强局部空间信息
+#         self.dw1 = nn.Sequential(
+#             nn.Conv2d(
+#                 c1,
+#                 c1,
+#                 kernel_size=dw_kernel,
+#                 stride=1,
+#                 padding=padding,
+#                 groups=c1,
+#                 bias=False
+#             ),
+#             nn.BatchNorm2d(c1)
+#         )
+
+#         # 2. 两个 1x1 分支，用于星运算
+#         self.fc1 = nn.Conv2d(c1, hidden_dim, kernel_size=1, stride=1, padding=0, bias=False)
+#         self.fc2 = nn.Conv2d(c1, hidden_dim, kernel_size=1, stride=1, padding=0, bias=False)
+#         self.act = nn.ReLU6(inplace=True)
+
+#         # 3. 星运算之后接 CAA
+#         self.caa = CAA(hidden_dim, k_b=caa_kernel)
+
+#         # 4. 将高维特征压回输出通道
+#         self.pw = nn.Sequential(
+#             nn.Conv2d(hidden_dim, c2, kernel_size=1, stride=1, padding=0, bias=False),
+#             nn.BatchNorm2d(c2)
+#         )
+
+#         # 5. 输出前再做一次 DWConv + BN
+#         self.dw2 = nn.Sequential(
+#             nn.Conv2d(
+#                 c2,
+#                 c2,
+#                 kernel_size=dw_kernel,
+#                 stride=1,
+#                 padding=padding,
+#                 groups=c2,
+#                 bias=False
+#             ),
+#             nn.BatchNorm2d(c2)
+#         )
+
+#         # 6. 残差连接
+#         self.add = shortcut and c1 == c2
+#         self.use_proj = shortcut and c1 != c2
+#         self.shortcut_proj = Conv(c1, c2, 1, 1, act=False) if self.use_proj else nn.Identity()
+
+#         # 7. 残差缩放参数
+#         # 初始值设小一点，让训练初期更接近原网络，减少对预训练特征的扰动
+#         self.gamma = nn.Parameter(torch.tensor(gamma_init, dtype=torch.float32))
+        
+#         # 让 A-Star 分支初始输出接近 0，训练初期更接近原始残差路径
+#         nn.init.constant_(self.dw2[1].weight, 0.0)
+#         nn.init.constant_(self.dw2[1].bias, 0.0)
+
+#     def forward(self, x):
+#         identity = x
+
+#         # DWConv + BN
+#         out = self.dw1(x)
+
+#         # 星运算：一个分支 ReLU6，另一个分支线性
+#         x1 = self.act(self.fc1(out))
+#         x2 = self.fc2(out)
+#         out = x1 * x2
+
+#         # CAA 筛选和增强星运算后的高维特征
+#         out = self.caa(out)
+
+#         # 通道压缩 + 输出前 DWConv
+#         out = self.pw(out)
+#         out = self.dw2(out)
+
+#         # 稳定残差：不是 out + identity，而是 identity + gamma * out
+#         if self.add:
+#             return identity + self.gamma * out
+#         elif self.use_proj:
+#             return self.shortcut_proj(identity) + self.gamma * out
+#         else:
+#             return self.gamma * out
+
+
+# class A_Star_C3(nn.Module):
+#     """
+#     A-Star-C3。
+
+#     用 A_Star_Block 替换原 C3 中的 Bottleneck。
+#     """
+
+#     def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):
+#         super().__init__()
+
+#         c_ = int(c2 * e)
+
+#         self.cv1 = Conv(c1, c_, 1, 1)
+#         self.cv2 = Conv(c1, c_, 1, 1)
+#         self.cv3 = Conv(2 * c_, c2, 1, 1)
+
+#         self.m = nn.Sequential(
+#             *(A_Star_Block(c_, c_, shortcut=shortcut) for _ in range(n))
+#         )
+
+#     def forward(self, x):
+#         return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), dim=1))
+
+
+# class A_Star_C3k2(nn.Module):
+#     """
+#     稳定版 A-Star-C3k2。
+
+#     尽量保持 YOLO11 原生 C3k2 / C2f 的数据流：
+#     1. cv1 后 chunk 成两支；
+#     2. 一支连续经过 A-Star 模块；
+#     3. concat 多阶段特征；
+#     4. cv2 输出。
+
+#     c3k=True:
+#         内部使用 A_Star_C3。
+#     c3k=False:
+#         直接使用 A_Star_Block。
+#     """
+
+#     def __init__(
+#         self,
+#         c1,
+#         c2,
+#         n=1,
+#         c3k=False,
+#         e=0.5,
+#         g=1,
+#         shortcut=True
+#     ):
+#         super().__init__()
+
+#         self.c = int(c2 * e)
+
+#         # 保持 C2f / C3k2 风格
+#         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
+#         self.cv2 = Conv((2 + n) * self.c, c2, 1, 1)
+
+#         # 这里我建议先用 inner_n=1，而不是 2
+#         # 原因：你当前全替换 A-Star 后效果下降，说明 A-Star 扰动偏强
+#         inner_n = 1
+
+#         self.m = nn.ModuleList(
+#             A_Star_C3(self.c, self.c, n=inner_n, shortcut=shortcut, g=g, e=1.0)
+#             if c3k
+#             else A_Star_Block(self.c, self.c, shortcut=shortcut)
+#             for _ in range(n)
+#         )
+
+#     def forward(self, x):
+#         y = list(self.cv1(x).chunk(2, dim=1))
+#         y.extend(m(y[-1]) for m in self.m)
+#         return self.cv2(torch.cat(y, dim=1))
+
+#     def forward_split(self, x):
+#         y = list(self.cv1(x).split((self.c, self.c), dim=1))
+#         y.extend(m(y[-1]) for m in self.m)
+#         return self.cv2(torch.cat(y, dim=1))
 
 
 import torch
