@@ -10,3 +10,11 @@ runs/
 # 忽略 Python 缓存
 __pycache__/
 *.pyc
+
+raw_data/
+raw_data_balanced/
+raw_data_rdd_filtered/
+review_D00_preview/
+review_D00_bad/
+*.zip
+*.cache
